@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AR AUDIO MIXER — STUDIO</title>
+<style>
+:root{
+  --bg:#0b0d10;
+  --panel:#14181d;
+  --panel2:#1b2129;
+  --strip:#171c22;
+  --line:#252c35;
+  --text:#c9d3dc;
+  --dim:#6d7885;
+  --accent:#28e0c4;
+  --accent2:#ff9a2e;
+  --green:#3ddc72;
+  --yellow:#f0c93b;
+  --red:#ff4d4d;
+  --led-off:#232a31;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
+html,body{margin:0; padding:0; background:var(--bg); color:var(--text); font-family:'Segoe UI',Roboto,Arial,sans-serif; overflow-x:hidden; width:100%; height:100%;}
+input,button,select{font-family:inherit; color:inherit;}
+.mono{font-family:'Consolas','Menlo','Courier New',monospace;}
+
+/* ===================== PORTRAIT OVERLAY ===================== */
+#portraitOverlay{
+  display:none; position:fixed; inset:0; z-index:9999; background:#05070a;
+  flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:24px;
+}
+#portraitOverlay .icon{font-size:54px; margin-bottom:14px; animation:rot 1.8s ease-in-out infinite;}
+@keyframes rot{0%,100%{transform:rotate(0deg);}50%{transform:rotate(90deg);}}
+#portraitOverlay h2{color:var(--accent); letter-spacing:2px; margin:0 0 8px;}
+#portraitOverlay p{color:var(--dim); margin:0; font-size:14px;}
+@media (orientation:portrait){
+  #portraitOverlay{display:flex;}
+}
+
+/* ===================== START OVERLAY ===================== */
+#startOverlay{
+  position:fixed; inset:0; z-index:9998; background:radial-gradient(ellipse at center,#10151b 0%,#05070a 100%);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
+}
+#startOverlay .brand{font-size:30px; font-weight:800; letter-spacing:4px; color:var(--accent);}
+#startOverlay .brand span{color:var(--accent2);}
+#startOverlay .sub{color:var(--dim); letter-spacing:3px; font-size:12px; margin-top:-10px;}
+#startBtn{
+  padding:18px 44px; font-size:16px; font-weight:700; letter-spacing:2px; border-radius:8px;
+  background:linear-gradient(180deg,#2fe6c8,#18a992); border:none; color:#04211c; cursor:pointer;
+  box-shadow:0 0 24px rgba(40,224,196,0.35), inset 0 -3px 0 rgba(0,0,0,0.25);
+}
+#startBtn:active{transform:translateY(2px);}
+#startOverlay .hint{color:var(--dim); font-size:12px; max-width:280px; text-align:center;}
+#startOverlay.hidden{display:none;}
+
+/* ===================== HEADER ===================== */
+header{
+  display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;
+  background:linear-gradient(180deg,#161c22,#10141a); border-bottom:1px solid var(--line);
+  padding:8px 14px; position:sticky; top:0; z-index:50;
+}
+.logo{display:flex; flex-direction:column; line-height:1.1;}
+.logo .name{font-weight:800; letter-spacing:2px; color:var(--accent); font-size:16px;}
+.logo .name span{color:var(--accent2);}
+.logo .mode{font-size:9px; letter-spacing:3px; color:var(--dim);}
+.status-bar{display:flex; gap:14px; align-items:center; font-size:10px;}
+.status-bar .stat{display:flex; align-items:center; gap:5px; color:var(--dim); letter-spacing:1px;}
+.status-bar .dot{width:8px; height:8px; border-radius:50%; background:var(--led-off); box-shadow:inset 0 0 2px #000;}
+.status-bar .dot.on{background:var(--green); box-shadow:0 0 6px var(--green);}
+.status-bar .dot.warn{background:var(--red); box-shadow:0 0 6px var(--red);}
+.status-bar .clock{color:var(--text); font-size:11px;}
+nav.tabs{display:flex; gap:4px; flex-wrap:wrap;}
+nav.tabs button{
+  background:var(--panel2); border:1px solid var(--line); color:var(--dim); padding:7px 12px; font-size:10px;
+  letter-spacing:1.5px; border-radius:5px; cursor:pointer; font-weight:700;
+}
+nav.tabs button.active{background:var(--accent); color:#04211c; border-color:var(--accent);}
+
+/* ===================== LAYOUT ===================== */
+main{padding:10px; padding-bottom:70px;}
+.tabpanel{display:none;}
+.tabpanel.active{display:block;}
+.panel-title{font-size:11px; letter-spacing:3px; color:var(--dim); margin:6px 2px 10px;}
+
+/* ===================== MIXER CONSOLE ===================== */
+.mixer-console{display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; align-items:stretch;}
+.channel-strip, .master-strip{
+  background:linear-gradient(180deg,var(--strip),#12161b); border:1px solid var(--line); border-radius:8px;
+  padding:8px 6px; min-width:118px; display:flex; flex-direction:column; align-items:center; gap:6px; flex:0 0 auto;
+}
+.master-strip{min-width:150px; border-color:#2c3a3f; background:linear-gradient(180deg,#151d1f,#10171a);}
+.ch-label{font-weight:800; font-size:12px; letter-spacing:1px; color:var(--accent);}
+.master-strip .ch-label{color:var(--accent2);}
+.ch-input-select{width:100%; background:var(--panel2); border:1px solid var(--line); border-radius:4px; padding:5px 2px; font-size:9px; text-align:center;}
+.ch-file-row{display:flex; gap:3px; width:100%;}
+.ch-file-btn{flex:1; background:var(--panel2); border:1px solid var(--line); color:var(--dim); font-size:9px; padding:5px 2px; border-radius:4px; cursor:pointer;}
+.ch-filename{font-size:8px; color:var(--dim); width:100%; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; height:12px;}
+.ch-transport{display:flex; gap:3px; width:100%;}
+.ch-transport button{flex:1; background:var(--panel2); border:1px solid var(--line); color:var(--text); font-size:10px; padding:4px 0; border-radius:4px; cursor:pointer;}
+.ch-transport button.active{background:var(--accent); color:#04211c;}
+.ch-progress{width:100%; height:4px; background:#252c35; border-radius:2px; overflow:hidden;}
+.ch-progress-fill{height:100%; width:0%; background:var(--accent);}
+.mic-status-mini{font-size:8px; color:var(--dim); min-height:10px;}
+
+.knob-row{display:flex; gap:6px; width:100%; justify-content:center;}
+.knob-block{display:flex; flex-direction:column; align-items:center; gap:2px;}
+.knob{
+  width:38px; height:38px; border-radius:50%; background:radial-gradient(circle at 35% 30%,#2b333c,#12161b 70%);
+  border:1px solid #333d47; position:relative; touch-action:none; cursor:pointer;
+  box-shadow:inset 0 2px 3px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.03);
+}
+.knob .ind{position:absolute; top:3px; left:50%; width:2px; height:14px; background:var(--accent); border-radius:1px; transform-origin:50% 16px; transform:translateX(-50%) rotate(0deg);}
+.knob-label{font-size:8px; letter-spacing:1px; color:var(--dim);}
+.knob-val{font-size:8px; color:var(--text); min-height:10px;}
+
+.eq-section{display:flex; gap:6px;}
+.pan-section{display:flex; flex-direction:column; align-items:center; width:100%; gap:2px;}
+.pan-section label{font-size:8px; color:var(--dim); letter-spacing:1px;}
+.pan-slider{width:100%; touch-action:none;}
+.pan-val{font-size:8px; color:var(--text);}
+
+.send-section{display:flex; flex-direction:column; align-items:center;}
+
+.fader-section{display:flex; flex-direction:column; align-items:center; gap:4px; flex:1;}
+.vu-canvas{background:#05070a; border:1px solid var(--line); border-radius:3px;}
+.fader-row{display:flex; gap:6px; align-items:center; height:170px;}
+.fader-slider.vertical{
+  -webkit-appearance:slider-vertical; writing-mode:bt-lr; width:26px; height:160px; touch-action:none;
+}
+.fader-val{font-size:9px; color:var(--text);}
+.clip-led{width:100%; text-align:center; font-size:7px; letter-spacing:1px; padding:2px 0; border-radius:3px; background:var(--led-off); color:#3a4048;}
+.clip-led.clip{background:var(--red); color:#2a0000; box-shadow:0 0 6px var(--red);}
+
+.mute-solo{display:flex; gap:4px; width:100%;}
+.mute-btn,.solo-btn{flex:1; padding:6px 0; font-size:9px; font-weight:800; border-radius:4px; border:1px solid var(--line); background:var(--panel2); color:var(--dim); cursor:pointer;}
+.mute-btn.active{background:var(--red); color:#2a0000; border-color:var(--red);}
+.solo-btn.active{background:var(--yellow); color:#2a2100; border-color:var(--yellow);}
+
+.master-vu-row{display:flex; gap:4px;}
+.peak-indicator{width:100%; text-align:center; font-size:8px; letter-spacing:1px; padding:3px 0; border-radius:3px; background:var(--led-off); color:#3a4048;}
+.peak-indicator.on{background:var(--red); color:#2a0000; box-shadow:0 0 8px var(--red);}
+.master-btns{display:flex; gap:4px; width:100%;}
+.master-btns button{flex:1; padding:6px 0; font-size:9px; font-weight:800; border-radius:4px; border:1px solid var(--line); background:var(--panel2); color:var(--dim); cursor:pointer;}
+.master-btns button.active{background:var(--accent2); color:#2a1400; border-color:var(--accent2);}
+
+/* ===================== EFFECT TAB ===================== */
+.fx-grid{display:flex; gap:14px; flex-wrap:wrap;}
+.fx-box{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px; min-width:220px;}
+.fx-box h3{margin:0 0 10px; font-size:12px; letter-spacing:2px; color:var(--accent);}
+.fx-knobs{display:flex; gap:18px;}
+.eq-graph{display:flex; gap:6px; align-items:flex-end; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px; margin-top:14px;}
+.eq-band{display:flex; flex-direction:column; align-items:center; gap:4px;}
+.eq-band input{-webkit-appearance:slider-vertical; writing-mode:bt-lr; width:22px; height:130px; touch-action:none;}
+.eq-band span{font-size:8px; color:var(--dim);}
+.eq-band .val{color:var(--text);}
+
+/* ===================== PLAYER TAB ===================== */
+.player-list{display:flex; flex-direction:column; gap:8px;}
+.player-row{display:flex; align-items:center; gap:10px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px 14px; flex-wrap:wrap;}
+.player-row .pch{font-weight:800; color:var(--accent); width:36px;}
+.player-row .pname{flex:1; min-width:120px; font-size:12px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.player-row .ptime{font-size:10px; color:var(--dim); width:100px; text-align:right;}
+.player-row input[type=range].seek{flex:2; min-width:120px;}
+.player-row button{background:var(--panel2); border:1px solid var(--line); color:var(--text); padding:6px 10px; border-radius:4px; font-size:11px; cursor:pointer;}
+.player-row button.active{background:var(--accent); color:#04211c;}
+
+/* ===================== PRESET TAB ===================== */
+.preset-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; margin-bottom:16px;}
+.preset-btn{background:var(--panel); border:1px solid var(--line); color:var(--text); padding:16px 8px; border-radius:8px; cursor:pointer; font-weight:700; letter-spacing:1px; font-size:12px;}
+.preset-btn:active{background:var(--accent); color:#04211c;}
+.preset-actions{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;}
+.preset-actions button{background:var(--panel2); border:1px solid var(--line); color:var(--text); padding:10px 16px; border-radius:6px; cursor:pointer; font-size:12px;}
+#savedPresetList{display:flex; flex-direction:column; gap:6px;}
+.saved-row{display:flex; gap:8px; align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:8px 12px;}
+.saved-row span{flex:1; font-size:12px;}
+.saved-row button{background:var(--panel2); border:1px solid var(--line); color:var(--text); padding:5px 10px; border-radius:4px; font-size:10px; cursor:pointer;}
+
+/* ===================== SETUP TAB ===================== */
+.setup-box{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:16px; margin-bottom:12px; font-size:12px; line-height:1.6; color:var(--dim);}
+.setup-box b{color:var(--text);}
+.setup-box button{margin-top:8px; background:var(--panel2); border:1px solid var(--line); color:var(--text); padding:8px 14px; border-radius:6px; cursor:pointer; font-size:12px;}
+#micTestResult{margin-top:6px; font-size:11px;}
+
+/* ===================== FOOTER ===================== */
+footer{
+  position:fixed; bottom:0; left:0; right:0; background:#0e1216; border-top:1px solid var(--line);
+  display:flex; justify-content:space-between; padding:8px 16px; font-size:9px; color:var(--dim); letter-spacing:1px; z-index:40;
+}
+footer b{color:var(--accent);}
+
+.msg-box{position:fixed; top:70px; left:50%; transform:translateX(-50%); background:#1b2129; border:1px solid var(--red); color:#ffb4b4; padding:10px 16px; border-radius:6px; font-size:12px; z-index:9997; display:none; max-width:90%; text-align:center;}
+</style>
+</head>
+<body>
+
+<!-- PORTRAIT OVERLAY -->
+<div id="portraitOverlay">
+  <div class="icon">⟳</div>
+  <h2>ROTATE YOUR DEVICE</h2>
+  <p>Please use landscape mode</p>
+</div>
+
+<!-- MESSAGE BOX -->
+<div class="msg-box" id="msgBox"></div>
+
+<!-- START OVERLAY -->
+<div id="startOverlay">
+  <div class="brand">AR AUDIO <span>MIXER</span></div>
+  <div class="sub">DIGITAL AUDIO STUDIO — MODE: STUDIO</div>
+  <button id="startBtn">START AUDIO ENGINE</button>
+  <div class="hint">Web Audio API akan diaktifkan setelah kamu menekan tombol ini (dibutuhkan oleh browser).</div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="logo">
+      <div class="name">AR AUDIO <span>MIXER</span></div>
+      <div class="mode">DIGITAL AUDIO STUDIO · MODE STUDIO</div>
+    </div>
+    <div class="status-bar">
+      <div class="stat"><span class="dot" id="engineDot"></span><span id="engineStatusTxt">ENGINE: OFF</span></div>
+      <div class="stat"><span class="dot" id="micDot"></span><span id="micStatusTxt">MIC: OFF</span></div>
+      <div class="stat clock mono" id="clockTxt">00:00:00</div>
+    </div>
+    <nav class="tabs">
+      <button data-tab="mixerTab" class="active">MIXER</button>
+      <button data-tab="effectTab">EFFECT</button>
+      <button data-tab="playerTab">PLAYER</button>
+      <button data-tab="presetTab">PRESET</button>
+      <button data-tab="setupTab">SETUP</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- MIXER TAB -->
+    <section id="mixerTab" class="tabpanel active">
+      <div class="panel-title">MIXING CONSOLE</div>
+      <div class="mixer-console" id="mixerConsole">
+        <!-- channel strips injected by JS -->
+        <div class="master-strip" id="masterStrip">
+          <div class="ch-label">MASTER</div>
+          <div class="master-vu-row">
+            <canvas id="masterVuL" class="vu-canvas" width="20" height="160"></canvas>
+            <canvas id="masterVuR" class="vu-canvas" width="20" height="160"></canvas>
+          </div>
+          <div id="masterPeak" class="peak-indicator">PEAK</div>
+          <div class="fader-row">
+            <input type="range" id="masterFader" class="fader-slider vertical" min="-60" max="6" step="0.1" value="0">
+          </div>
+          <div class="fader-val" id="masterFaderVal">0.0 dB</div>
+          <div class="knob-block" id="masterGainKnobBlock">
+            <div class="knob" id="masterGainKnob"><div class="ind"></div></div>
+            <div class="knob-label">TRIM</div>
+            <div class="knob-val" id="masterGainVal">0.0dB</div>
+          </div>
+          <div class="master-btns">
+            <button id="masterMuteBtn">MUTE</button>
+            <button id="masterMonoBtn">MONO</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- EFFECT TAB -->
+    <section id="effectTab" class="tabpanel">
+      <div class="panel-title">EFFECT SECTION</div>
+      <div class="fx-grid">
+        <div class="fx-box">
+          <h3>REVERB</h3>
+          <div class="fx-knobs">
+            <div class="knob-block"><div class="knob" id="revMixKnob"><div class="ind"></div></div><div class="knob-label">MIX</div><div class="knob-val" id="revMixVal">0%</div></div>
+            <div class="knob-block"><div class="knob" id="revTimeKnob"><div class="ind"></div></div><div class="knob-label">TIME</div><div class="knob-val" id="revTimeVal">1.5s</div></div>
+          </div>
+        </div>
+        <div class="fx-box">
+          <h3>DELAY</h3>
+          <div class="fx-knobs">
+            <div class="knob-block"><div class="knob" id="delMixKnob"><div class="ind"></div></div><div class="knob-label">MIX</div><div class="knob-val" id="delMixVal">0%</div></div>
+            <div class="knob-block"><div class="knob" id="delTimeKnob"><div class="ind"></div></div><div class="knob-label">TIME</div><div class="knob-val" id="delTimeVal">300ms</div></div>
+            <div class="knob-block"><div class="knob" id="delFbKnob"><div class="ind"></div></div><div class="knob-label">FEEDBACK</div><div class="knob-val" id="delFbVal">0%</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel-title">MASTER EQ (9-BAND)</div>
+      <div class="eq-graph" id="masterEqGraph"></div>
+    </section>
+
+    <!-- PLAYER TAB -->
+    <section id="playerTab" class="tabpanel">
+      <div class="panel-title">PLAYER — TERHUBUNG KE CHANNEL MIXER</div>
+      <div class="player-list" id="playerList"></div>
+    </section>
+
+    <!-- PRESET TAB -->
+    <section id="presetTab" class="tabpanel">
+      <div class="panel-title">PRESET</div>
+      <div class="preset-grid" id="presetGrid"></div>
+      <div class="preset-actions">
+        <button id="savePresetBtn">SAVE PRESET</button>
+        <button id="resetMixerBtn">RESET MIXER</button>
+      </div>
+      <div class="panel-title">SAVED PRESETS</div>
+      <div id="savedPresetList"></div>
+    </section>
+
+    <!-- SETUP TAB -->
+    <section id="setupTab" class="tabpanel">
+      <div class="panel-title">SETUP / INFO</div>
+      <div class="setup-box">
+        <b>Keterbatasan Browser:</b><br>
+        Browser Android tidak dapat mengambil audio langsung dari aplikasi lain (Spotify, YouTube, TikTok, game, dsb) secara bebas.
+        Sumber audio yang benar-benar berfungsi di mixer ini hanya: <b>file audio dari HP</b> dan <b>microphone</b>.
+        Jika perangkat/browser mendukung capture tab/layar dengan audio, kamu bisa mencobanya di bawah — tetapi ini tidak dijamin tersedia di semua perangkat.
+        <br><button id="tryDisplayCaptureBtn">COBA CAPTURE TAB AUDIO (opsional)</button>
+      </div>
+      <div class="setup-box">
+        <b>Microphone Test:</b><br>
+        <button id="micTestBtn">TEST MICROPHONE PERMISSION</button>
+        <div id="micTestResult" class="mono"></div>
+      </div>
+      <div class="setup-box">
+        <b>Audio Engine Info:</b><br>
+        <span id="engineInfoTxt" class="mono">Belum aktif.</span>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div>Developer<br><b>Oga.official</b></div>
+    <div style="text-align:right">Support by<br><b>AR AUDIO</b></div>
+  </footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================
+   UTILITIES
+========================================================= */
+function $(sel,root){ return (root||document).querySelector(sel); }
+function $all(sel,root){ return Array.prototype.slice.call((root||document).querySelectorAll(sel)); }
+function dbToLinear(db){ return Math.pow(10, db/20); }
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+function fmtDb(v){ return (v>=0?"+":"") + v.toFixed(1) + " dB"; }
+
+function showMsg(text, ms){
+  var box = $("#msgBox");
+  box.textContent = text;
+  box.style.display = "block";
+  clearTimeout(showMsg._t);
+  showMsg._t = setTimeout(function(){ box.style.display="none"; }, ms||3500);
+}
+
+/* =========================================================
+   TABS
+========================================================= */
+$all("nav.tabs button").forEach(function(btn){
+  btn.addEventListener("click", function(){
+    $all("nav.tabs button").forEach(function(b){ b.classList.remove("active"); });
+    $all(".tabpanel").forEach(function(p){ p.classList.remove("active"); });
+    btn.classList.add("active");
+    $("#"+btn.dataset.tab).classList.add("active");
+  });
+});
+
+/* =========================================================
+   CLOCK
+========================================================= */
+setInterval(function(){
+  var d = new Date();
+  $("#clockTxt").textContent = d.toLocaleTimeString();
+}, 1000);
+
+/* =========================================================
+   GENERIC KNOB COMPONENT
+   Drag vertically to change value. Range mapped to -135deg..+135deg.
+========================================================= */
+function initKnob(el, opts){
+  // opts: {min,max,value,step,onChange,format}
+  var min=opts.min, max=opts.max, step=opts.step||0.1;
+  var value = clamp(opts.value!=null?opts.value:min, min, max);
+  var ind = el.querySelector(".ind");
+  function render(){
+    var norm = (value-min)/(max-min);
+    var deg = -135 + norm*270;
+    ind.style.transform = "translateX(-50%) rotate("+deg+"deg)";
+    if(opts.onRender) opts.onRender(value);
+  }
+  function setValue(v, silent){
+    value = clamp(Math.round(v/step)*step, min, max);
+    render();
+    if(!silent && opts.onChange) opts.onChange(value);
+  }
+  var dragging=false, startY=0, startVal=0;
+  function pos(e){ return (e.touches? e.touches[0].clientY : e.clientY); }
+  function down(e){ dragging=true; startY=pos(e); startVal=value; e.preventDefault(); }
+  function move(e){
+    if(!dragging) return;
+    var dy = startY - pos(e);
+    var range = max-min;
+    var newVal = startVal + (dy/140)*range;
+    setValue(newVal);
+    e.preventDefault();
+  }
+  function up(){ dragging=false; }
+  el.style.touchAction="none";
+  el.addEventListener("mousedown", down);
+  window.addEventListener("mousemove", move);
+  window.addEventListener("mouseup", up);
+  el.addEventListener("touchstart", down, {passive:false});
+  window.addEventListener("touchmove", move, {passive:false});
+  window.addEventListener("touchend", up);
+  el.addEventListener("dblclick", function(){ setValue(opts.value!=null?opts.value:min); });
+  render();
+  return { setValue:setValue, getValue:function(){return value;} };
+}
+
+/* =========================================================
+   AUDIO ENGINE
+========================================================= */
+var audioCtx = null;
+var engineActive = false;
+var masterSumGain, masterEQFilters=[], masterFaderGain, masterMuteGain, masterOutputNode, masterMonoNode;
+var masterAnalyserL, masterAnalyserR, masterSplitter;
+var fxSendBus, reverbInput, convolver, reverbReturnGain, delayInput, delayNode, delayFeedback, delayReturnGain;
+var channels = [];
+var NUM_CH = 8;
+var masterMuted=false, masterMono=false;
+
+var MASTER_EQ_FREQS = [60,120,250,500,1000,2000,4000,8000,16000];
+
+function buildAudioGraph(){
+  audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+
+  // ---- MASTER BUS ----
+  masterSumGain = audioCtx.createGain(); masterSumGain.gain.value = 1;
+  // master EQ chain (9 band peaking)
+  var prev = masterSumGain;
+  MASTER_EQ_FREQS.forEach(function(freq){
+    var f = audioCtx.createBiquadFilter();
+    f.type = "peaking"; f.frequency.value = freq; f.Q.value = 1.2; f.gain.value = 0;
+    prev.connect(f); prev = f;
+    masterEQFilters.push(f);
+  });
+  masterFaderGain = audioCtx.createGain(); masterFaderGain.gain.value = 1;
+  prev.connect(masterFaderGain);
+
+  masterMuteGain = audioCtx.createGain(); masterMuteGain.gain.value = 1;
+  masterFaderGain.connect(masterMuteGain);
+
+  // metering tap (always stereo split, does not affect main path)
+  masterSplitter = audioCtx.createChannelSplitter(2);
+  masterMuteGain.connect(masterSplitter);
+  masterAnalyserL = audioCtx.createAnalyser(); masterAnalyserL.fftSize=1024;
+  masterAnalyserR = audioCtx.createAnalyser(); masterAnalyserR.fftSize=1024;
+  masterSplitter.connect(masterAnalyserL,0);
+  masterSplitter.connect(masterAnalyserR,1);
+
+  // mono sum node (channelCount=1 forces downmix on connect)
+  masterMonoNode = audioCtx.createGain();
+  masterMonoNode.channelCount = 1; masterMonoNode.channelCountMode = "explicit"; masterMonoNode.channelInterpretation="speakers";
+
+  // main output path: default stereo direct
+  masterMuteGain.connect(audioCtx.destination);
+
+  // ---- FX BUS ----
+  fxSendBus = audioCtx.createGain(); fxSendBus.gain.value = 1;
+
+  reverbInput = audioCtx.createGain(); reverbInput.gain.value = 1;
+  convolver = audioCtx.createConvolver();
+  reverbReturnGain = audioCtx.createGain(); reverbReturnGain.gain.value = 0;
+  fxSendBus.connect(reverbInput);
+  reverbInput.connect(convolver);
+  convolver.connect(reverbReturnGain);
+  reverbReturnGain.connect(masterSumGain);
+  setImpulse(1.5);
+
+  delayInput = audioCtx.createGain(); delayInput.gain.value = 1;
+  delayNode = audioCtx.createDelay(2.0); delayNode.delayTime.value = 0.3;
+  delayFeedback = audioCtx.createGain(); delayFeedback.gain.value = 0;
+  delayReturnGain = audioCtx.createGain(); delayReturnGain.gain.value = 0;
+  fxSendBus.connect(delayInput);
+  delayInput.connect(delayNode);
+  delayNode.connect(delayFeedback);
+  delayFeedback.connect(delayNode);
+  delayNode.connect(delayReturnGain);
+  delayReturnGain.connect(masterSumGain);
+
+  // ---- CHANNELS ----
+  for(var i=0;i<NUM_CH;i++){
+    channels.push(buildChannel(i+1));
+  }
+
+  engineActive = true;
+}
+
+function setImpulse(duration){
+  duration = clamp(duration, 0.1, 5);
+  var decay = 2.2;
+  var rate = audioCtx.sampleRate;
+  var length = Math.max(1, Math.floor(rate*duration));
+  var impulse = audioCtx.createBuffer(2, length, rate);
+  for(var ch=0; ch<2; ch++){
+    var data = impulse.getChannelData(ch);
+    for(var i=0;i<length;i++){
+      data[i] = (Math.random()*2-1) * Math.pow(1-i/length, decay);
+    }
+  }
+  convolver.buffer = impulse;
+}
+
+function buildChannel(num){
+  var ch = { num:num, inputType:"none", sourceNode:null, audioEl:null, stream:null, muted:false, solo:false, loop:false };
+
+  ch.gainNode = audioCtx.createGain(); ch.gainNode.gain.value = 1;
+  ch.lowEQ = audioCtx.createBiquadFilter(); ch.lowEQ.type="lowshelf"; ch.lowEQ.frequency.value=100; ch.lowEQ.gain.value=0;
+  ch.midEQ = audioCtx.createBiquadFilter(); ch.midEQ.type="peaking"; ch.midEQ.frequency.value=1000; ch.midEQ.Q.value=1; ch.midEQ.gain.value=0;
+  ch.highEQ = audioCtx.createBiquadFilter(); ch.highEQ.type="highshelf"; ch.highEQ.frequency.value=8000; ch.highEQ.gain.value=0;
+  ch.panNode = audioCtx.createStereoPanner(); ch.panNode.pan.value=0;
+  ch.faderGain = audioCtx.createGain(); ch.faderGain.gain.value = 1;
+  ch.analyser = audioCtx.createAnalyser(); ch.analyser.fftSize = 1024;
+  ch.muteGain = audioCtx.createGain(); ch.muteGain.gain.value = 1;
+  ch.sendGain = audioCtx.createGain(); ch.sendGain.gain.value = 0;
+
+  ch.gainNode.connect(ch.lowEQ);
+  ch.lowEQ.connect(ch.midEQ);
+  ch.midEQ.connect(ch.highEQ);
+  ch.highEQ.connect(ch.panNode);
+  ch.panNode.connect(ch.faderGain);
+  ch.faderGain.connect(ch.analyser);
+  ch.analyser.connect(ch.muteGain);
+  ch.muteGain.connect(masterSumGain);
+  ch.faderGain.connect(ch.sendGain);
+  ch.sendGain.connect(fxSendBus);
+
+  return ch;
+}
+
+function connectChannelSource(ch, node){
+  if(ch.sourceNode){
+    try{ ch.sourceNode.disconnect(); }catch(e){}
+  }
+  ch.sourceNode = node;
+  if(node) node.connect(ch.gainNode);
+}
+
+function updateSoloMuteState(){
+  var anySolo = channels.some(function(c){return c.solo;});
+  channels.forEach(function(c){
+    var audible = c.muted ? false : (anySolo ? c.solo : true);
+    c.muteGain.gain.setTargetAtTime(audible?1:0, audioCtx.currentTime, 0.01);
+  });
+}
+
+function setMasterMono(enabled){
+  masterMono = enabled;
+  try{ masterMuteGain.disconnect(audioCtx.destination); }catch(e){}
+  try{ masterMuteGain.disconnect(masterMonoNode); }catch(e){}
+  try{ masterMonoNode.disconnect(audioCtx.destination); }catch(e){}
+  if(enabled){
+    masterMuteGain.connect(masterMonoNode);
+    masterMonoNode.connect(audioCtx.destination);
+  } else {
+    masterMuteGain.connect(audioCtx.destination);
+  }
+}
+
+/* =========================================================
+   START AUDIO ENGINE
+========================================================= */
+$("#startBtn").addEventListener("click", function(){
+  try{
+    if(!audioCtx){ buildAudioGraph(); }
+    audioCtx.resume().then(function(){
+      $("#startOverlay").classList.add("hidden");
+      $("#engineDot").classList.add("on");
+      $("#engineStatusTxt").textContent = "ENGINE: ACTIVE";
+      $("#engineInfoTxt").textContent = "State: "+audioCtx.state+" | SampleRate: "+audioCtx.sampleRate+"Hz | Channels: "+NUM_CH;
+      buildUI();
+      requestAnimationFrame(meterLoop);
+    });
+  }catch(err){
+    showMsg("Your browser does not support this feature.");
+  }
+});
+
+/* =========================================================
+   BUILD CHANNEL UI (called once after engine starts)
+========================================================= */
+function buildUI(){
+  var console_ = $("#mixerConsole");
+  var masterStrip = $("#masterStrip");
+
+  channels.forEach(function(ch){
+    var strip = document.createElement("div");
+    strip.className = "channel-strip";
+    strip.innerHTML =
+      '<div class="ch-label">CH'+ch.num+'</div>'+
+      '<select class="ch-input-select">'+
+        '<option value="none">NONE</option>'+
+        '<option value="file">AUDIO FILE</option>'+
+        '<option value="mic">MICROPHONE</option>'+
+      '</select>'+
+      '<input type="file" accept="audio/*" class="ch-file-input" style="display:none">'+
+      '<div class="ch-filename">No file</div>'+
+      '<div class="ch-transport">'+
+        '<button class="tp-play">▶</button>'+
+        '<button class="tp-stop">■</button>'+
+        '<button class="tp-loop">LOOP</button>'+
+      '</div>'+
+      '<div class="ch-progress"><div class="ch-progress-fill"></div></div>'+
+      '<div class="mic-status-mini"></div>'+
+      '<div class="knob-row">'+
+        '<div class="knob-block"><div class="knob knob-gain"><div class="ind"></div></div><div class="knob-label">GAIN</div><div class="knob-val kv-gain">0.0dB</div></div>'+
+      '</div>'+
+      '<div class="eq-section">'+
+        '<div class="knob-block"><div class="knob knob-low"><div class="ind"></div></div><div class="knob-label">LOW</div><div class="knob-val kv-low">0.0</div></div>'+
+        '<div class="knob-block"><div class="knob knob-mid"><div class="ind"></div></div><div class="knob-label">MID</div><div class="knob-val kv-mid">0.0</div></div>'+
+        '<div class="knob-block"><div class="knob knob-high"><div class="ind"></div></div><div class="knob-label">HIGH</div><div class="knob-val kv-high">0.0</div></div>'+
+      '</div>'+
+      '<div class="pan-section">'+
+        '<label>L ---- PAN ---- R</label>'+
+        '<input type="range" class="pan-slider" min="-1" max="1" step="0.01" value="0">'+
+        '<span class="pan-val">C</span>'+
+      '</div>'+
+      '<div class="send-section">'+
+        '<div class="knob-block"><div class="knob knob-send"><div class="ind"></div></div><div class="knob-label">FX SEND</div><div class="knob-val kv-send">0%</div></div>'+
+      '</div>'+
+      '<div class="fader-section">'+
+        '<canvas class="vu-canvas" width="22" height="150"></canvas>'+
+        '<div class="fader-row"><input type="range" class="fader-slider vertical" min="-60" max="6" step="0.1" value="0"></div>'+
+        '<div class="fader-val">0.0 dB</div>'+
+        '<div class="clip-led">CLIP</div>'+
+      '</div>'+
+      '<div class="mute-solo">'+
+        '<button class="mute-btn">MUTE</button>'+
+        '<button class="solo-btn">SOLO</button>'+
+      '</div>';
+    console_.insertBefore(strip, masterStrip);
+    ch.ui = {
+      strip:strip,
+      select: strip.querySelector(".ch-input-select"),
+      fileInput: strip.querySelector(".ch-file-input"),
+      filename: strip.querySelector(".ch-filename"),
+      playBtn: strip.querySelector(".tp-play"),
+      stopBtn: strip.querySelector(".tp-stop"),
+      loopBtn: strip.querySelector(".tp-loop"),
+      progressFill: strip.querySelector(".ch-progress-fill"),
+      micStatus: strip.querySelector(".mic-status-mini"),
+      panSlider: strip.querySelector(".pan-slider"),
+      panVal: strip.querySelector(".pan-val"),
+      faderSlider: strip.querySelector(".fader-slider"),
+      faderVal: strip.querySelector(".fader-val"),
+      muteBtn: strip.querySelector(".mute-btn"),
+      soloBtn: strip.querySelector(".solo-btn"),
+      vuCanvas: strip.querySelector(".vu-canvas"),
+      clipLed: strip.querySelector(".clip-led")
+    };
+    wireChannelUI(ch);
+  });
+
+  wireMasterUI();
+  buildMasterEQUI();
+  buildPresetUI();
+  buildPlayerUI();
+}
+
+function wireChannelUI(ch){
+  var ui = ch.ui;
+
+  // KNOBS
+  initKnob(ui.strip.querySelector(".knob-gain"), {
+    min:-24, max:24, value:0, step:0.1,
+    onChange:function(v){ ch.gainNode.gain.setTargetAtTime(dbToLinear(v), audioCtx.currentTime, 0.01); ui.strip.querySelector(".kv-gain").textContent = fmtDb(v); },
+    onRender:function(v){ ui.strip.querySelector(".kv-gain").textContent = fmtDb(v); }
+  });
+  initKnob(ui.strip.querySelector(".knob-low"), {
+    min:-15, max:15, value:0, step:0.1,
+    onChange:function(v){ ch.lowEQ.gain.setTargetAtTime(v, audioCtx.currentTime, 0.01); ui.strip.querySelector(".kv-low").textContent = v.toFixed(1); },
+    onRender:function(v){ ui.strip.querySelector(".kv-low").textContent = v.toFixed(1); }
+  });
+  initKnob(ui.strip.querySelector(".knob-mid"), {
+    min:-15, max:15, value:0, step:0.1,
+    onChange:function(v){ ch.midEQ.gain.setTargetAtTime(v, audioCtx.currentTime, 0.01); ui.strip.querySelector(".kv-mid").textContent = v.toFixed(1); },
+    onRender:function(v){ ui.strip.querySelector(".kv-mid").textContent = v.toFixed(1); }
+  });
+  initKnob(ui.strip.querySelector(".knob-high"), {
+    min:-15, max:15, value:0, step:0.1,
+    onChange:function(v){ ch.highEQ.gain.setTargetAtTime(v, audioCtx.currentTime, 0.01); ui.strip.querySelector(".kv-high").textContent = v.toFixed(1); },
+    onRender:function(v){ ui.strip.querySelector(".kv-high").textContent = v.toFixed(1); }
+  });
+  initKnob(ui.strip.querySelector(".knob-send"), {
+    min:0, max:100, value:0, step:1,
+    onChange:function(v){ ch.sendGain.gain.setTargetAtTime(v/100, audioCtx.currentTime, 0.01); ui.strip.querySelector(".kv-send").textContent = Math.round(v)+"%"; },
+    onRender:function(v){ ui.strip.querySelector(".kv-send").textContent = Math.round(v)+"%"; }
+  });
+
+  // PAN
+  ui.panSlider.addEventListener("input", function(){
+    var v = parseFloat(ui.panSlider.value);
+    ch.panNode.pan.setTargetAtTime(v, audioCtx.currentTime, 0.01);
+    ui.panVal.textContent = Math.abs(v)<0.03 ? "C" : (v<0 ? ("L"+Math.round(Math.abs(v)*100)) : ("R"+Math.round(v*100)));
+  });
+
+  // FADER
+  ui.faderSlider.addEventListener("input", function(){
+    var v = parseFloat(ui.faderSlider.value);
+    ch.faderGain.gain.setTargetAtTime(dbToLinear(v), audioCtx.currentTime, 0.01);
+    ui.faderVal.textContent = fmtDb(v);
+  });
+
+  // MUTE / SOLO
+  ui.muteBtn.addEventListener("click", function(){
+    ch.muted = !ch.muted;
+    ui.muteBtn.classList.toggle("active", ch.muted);
+    updateSoloMuteState();
+  });
+  ui.soloBtn.addEventListener("click", function(){
+    ch.solo = !ch.solo;
+    ui.soloBtn.classList.toggle("active", ch.solo);
+    updateSoloMuteState();
+  });
+
+  // INPUT SELECT
+  ui.select.addEventListener("change", function(){
+    var val = ui.select.value;
+    handleInputChange(ch, val);
+  });
+
+  // FILE
+  ui.fileInput.addEventListener("change", function(){
+    var file = ui.fileInput.files[0];
+    if(!file) return;
+    loadChannelFile(ch, file);
+  });
+
+  // TRANSPORT
+  ui.playBtn.addEventListener("click", function(){
+    if(!ch.audioEl){ showMsg("Belum ada file audio di CH"+ch.num); return; }
+    if(ch.audioEl.paused){
+      ch.audioEl.play().catch(function(){ showMsg("Unable to load audio file."); });
+    } else {
+      ch.audioEl.pause();
+    }
+  });
+  ui.stopBtn.addEventListener("click", function(){
+    if(!ch.audioEl) return;
+    ch.audioEl.pause();
+    ch.audioEl.currentTime = 0;
+  });
+  ui.loopBtn.addEventListener("click", function(){
+    ch.loop = !ch.loop;
+    ui.loopBtn.classList.toggle("active", ch.loop);
+    if(ch.audioEl) ch.audioEl.loop = ch.loop;
+  });
+}
+
+function handleInputChange(ch, type){
+  ch.inputType = type;
+  var ui = ch.ui;
+  ui.micStatus.textContent = "";
+  if(type === "none"){
+    connectChannelSource(ch, null);
+  } else if(type === "file"){
+    ui.fileInput.click();
+  } else if(type === "mic"){
+    requestMic(ch);
+  }
+}
+
+function loadChannelFile(ch, file){
+  var ui = ch.ui;
+  if(!ch.audioEl){
+    ch.audioEl = new Audio();
+    ch.audioEl.crossOrigin = "anonymous";
+    var srcNode = audioCtx.createMediaElementSource(ch.audioEl);
+    ch.fileSourceNode = srcNode;
+    ch.audioEl.addEventListener("timeupdate", function(){
+      var pct = ch.audioEl.duration ? (ch.audioEl.currentTime/ch.audioEl.duration*100) : 0;
+      ui.progressFill.style.width = pct+"%";
+      updatePlayerRow(ch);
+    });
+    ch.audioEl.addEventListener("play", function(){ ui.playBtn.classList.add("active"); ui.playBtn.textContent="⏸"; });
+    ch.audioEl.addEventListener("pause", function(){ ui.playBtn.classList.remove("active"); ui.playBtn.textContent="▶"; });
+    ch.audioEl.addEventListener("error", function(){ showMsg("Unable to load audio file."); });
+  }
+  var url = URL.createObjectURL(file);
+  ch.audioEl.src = url;
+  ch.audioEl.loop = ch.loop;
+  ch.fileName = file.name;
+  ui.filename.textContent = file.name;
+  connectChannelSource(ch, ch.fileSourceNode);
+  updatePlayerUI();
+}
+
+function requestMic(ch){
+  var ui = ch.ui;
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    showMsg("Your browser does not support this feature.");
+    ui.select.value = "none";
+    return;
+  }
+  navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
+    ch.stream = stream;
+    var micSource = audioCtx.createMediaStreamSource(stream);
+    connectChannelSource(ch, micSource);
+    ui.micStatus.textContent = "MIC: ON";
+    ui.micStatus.style.color = "var(--green)";
+    $("#micDot").classList.add("on");
+    $("#micStatusTxt").textContent = "MIC: ON";
+  }).catch(function(err){
+    showMsg("Microphone permission denied");
+    ui.micStatus.textContent = "MIC PERMISSION DENIED";
+    ui.micStatus.style.color = "var(--red)";
+    ui.select.value = "none";
+    ch.inputType = "none";
+  });
+}
+
+/* =========================================================
+   MASTER UI
+========================================================= */
+function wireMasterUI(){
+  initKnob($("#masterGainKnob"), {
+    min:-24, max:24, value:0, step:0.1,
+    onChange:function(v){ masterSumGain.gain.setTargetAtTime(dbToLinear(v), audioCtx.currentTime, 0.01); $("#masterGainVal").textContent = fmtDb(v); },
+    onRender:function(v){ $("#masterGainVal").textContent = fmtDb(v); }
+  });
+  $("#masterFader").addEventListener("input", function(){
+    var v = parseFloat(this.value);
+    masterFaderGain.gain.setTargetAtTime(dbToLinear(v), audioCtx.currentTime, 0.01);
+    $("#masterFaderVal").textContent = fmtDb(v);
+  });
+  $("#masterMuteBtn").addEventListener("click", function(){
+    masterMuted = !masterMuted;
+    this.classList.toggle("active", masterMuted);
+    masterMuteGain.gain.setTargetAtTime(masterMuted?0:1, audioCtx.currentTime, 0.01);
+  });
+  $("#masterMonoBtn").addEventListener("click", function(){
+    setMasterMono(!masterMono);
+    this.classList.toggle("active", masterMono);
+  });
+
+  // reverb knobs
+  initKnob($("#revMixKnob"), {min:0,max:100,value:0,step:1,
+    onChange:function(v){ reverbReturnGain.gain.setTargetAtTime(v/100, audioCtx.currentTime, 0.01); $("#revMixVal").textContent = Math.round(v)+"%"; },
+    onRender:function(v){ $("#revMixVal").textContent = Math.round(v)+"%"; }});
+  initKnob($("#revTimeKnob"), {min:0.1,max:5,value:1.5,step:0.1,
+    onChange:function(v){ setImpulse(v); $("#revTimeVal").textContent = v.toFixed(1)+"s"; },
+    onRender:function(v){ $("#revTimeVal").textContent = v.toFixed(1)+"s"; }});
+
+  // delay knobs
+  initKnob($("#delMixKnob"), {min:0,max:100,value:0,step:1,
+    onChange:function(v){ delayReturnGain.gain.setTargetAtTime(v/100, audioCtx.currentTime, 0.01); $("#delMixVal").textContent = Math.round(v)+"%"; },
+    onRender:function(v){ $("#delMixVal").textContent = Math.round(v)+"%"; }});
+  initKnob($("#delTimeKnob"), {min:0,max:1000,value:300,step:5,
+    onChange:function(v){ delayNode.delayTime.setTargetAtTime(v/1000, audioCtx.currentTime, 0.01); $("#delTimeVal").textContent = Math.round(v)+"ms"; },
+    onRender:function(v){ $("#delTimeVal").textContent = Math.round(v)+"ms"; }});
+  initKnob($("#delFbKnob"), {min:0,max:90,value:0,step:1,
+    onChange:function(v){ delayFeedback.gain.setTargetAtTime(v/100, audioCtx.currentTime, 0.01); $("#delFbVal").textContent = Math.round(v)+"%"; },
+    onRender:function(v){ $("#delFbVal").textContent = Math.round(v)+"%"; }});
+}
+
+function buildMasterEQUI(){
+  var graph = $("#masterEqGraph");
+  masterEQFilters.forEach(function(filter, idx){
+    var freq = MASTER_EQ_FREQS[idx];
+    var band = document.createElement("div");
+    band.className = "eq-band";
+    var label = freq>=1000 ? (freq/1000)+"k" : freq+"";
+    band.innerHTML = '<input type="range" min="-15" max="15" step="0.1" value="0"><span class="val">0.0</span><span>'+label+'</span>';
+    var input = band.querySelector("input");
+    var val = band.querySelector(".val");
+    input.addEventListener("input", function(){
+      var v = parseFloat(input.value);
+      filter.gain.setTargetAtTime(v, audioCtx.currentTime, 0.01);
+      val.textContent = v.toFixed(1);
+    });
+    band.input = input; band.val = val;
+    graph.appendChild(band);
+  });
+}
+
+/* =========================================================
+   PLAYER TAB
+========================================================= */
+function buildPlayerUI(){
+  updatePlayerUI();
+}
+function updatePlayerUI(){
+  var list = $("#playerList");
+  list.innerHTML = "";
+  var any = false;
+  channels.forEach(function(ch){
+    if(ch.inputType !== "file" || !ch.audioEl) return;
+    any = true;
+    var row = document.createElement("div");
+    row.className = "player-row";
+    row.innerHTML =
+      '<div class="pch">CH'+ch.num+'</div>'+
+      '<div class="pname">'+(ch.fileName||"—")+'</div>'+
+      '<button class="p-play">▶ PLAY</button>'+
+      '<button class="p-stop">■ STOP</button>'+
+      '<button class="p-loop'+(ch.loop?' active':'')+'">LOOP</button>'+
+      '<input type="range" class="seek" min="0" max="100" value="0" step="0.1">'+
+      '<div class="ptime mono">0:00 / 0:00</div>';
+    list.appendChild(row);
+    var playBtn = row.querySelector(".p-play");
+    var stopBtn = row.querySelector(".p-stop");
+    var loopBtn = row.querySelector(".p-loop");
+    var seek = row.querySelector(".seek");
+    var timeTxt = row.querySelector(".ptime");
+    playBtn.addEventListener("click", function(){
+      if(ch.audioEl.paused){ ch.audioEl.play().catch(function(){showMsg("Unable to load audio file.");}); }
+      else { ch.audioEl.pause(); }
+    });
+    stopBtn.addEventListener("click", function(){ ch.audioEl.pause(); ch.audioEl.currentTime=0; });
+    loopBtn.addEventListener("click", function(){ ch.loop=!ch.loop; ch.audioEl.loop=ch.loop; loopBtn.classList.toggle("active",ch.loop); ch.ui.loopBtn.classList.toggle("active",ch.loop); });
+    seek.addEventListener("input", function(){
+      if(ch.audioEl.duration) ch.audioEl.currentTime = (seek.value/100)*ch.audioEl.duration;
+    });
+    ch.playerUi = {row:row, playBtn:playBtn, seek:seek, timeTxt:timeTxt};
+  });
+  if(!any){
+    list.innerHTML = '<div style="color:var(--dim);font-size:12px;">Belum ada channel dengan AUDIO FILE. Pilih AUDIO FILE pada salah satu channel di tab MIXER.</div>';
+  }
+}
+function fmtTime(s){
+  if(!isFinite(s)) s=0;
+  var m = Math.floor(s/60), sec = Math.floor(s%60);
+  return m+":"+(sec<10?"0":"")+sec;
+}
+function updatePlayerRow(ch){
+  if(!ch.playerUi) return;
+  var el = ch.audioEl;
+  ch.playerUi.playBtn.classList.toggle("active", !el.paused);
+  ch.playerUi.playBtn.textContent = el.paused ? "▶ PLAY" : "⏸ PAUSE";
+  if(el.duration){
+    ch.playerUi.seek.value = (el.currentTime/el.duration*100);
+  }
+  ch.playerUi.timeTxt.textContent = fmtTime(el.currentTime)+" / "+fmtTime(el.duration);
+}
+
+/* =========================================================
+   PRESETS
+========================================================= */
+var PRESETS = {
+  "FLAT":    { low:0, mid:0, high:0, masterEq:[0,0,0,0,0,0,0,0,0] },
+  "VOCAL":   { low:-3, mid:5, high:3, masterEq:[-2,-1,0,2,4,3,2,1,0] },
+  "MUSIC":   { low:3, mid:0, high:2, masterEq:[3,2,0,0,0,1,2,3,3] },
+  "KARAOKE": { low:2, mid:-4, high:4, masterEq:[2,1,-2,-4,-2,1,3,4,3] },
+  "BASS BOOST": { low:9, mid:0, high:0, masterEq:[8,6,3,0,0,0,0,0,0] },
+  "LIVE":    { low:2, mid:2, high:3, masterEq:[2,2,1,0,1,2,3,3,2] },
+  "SPEECH":  { low:-6, mid:6, high:2, masterEq:[-6,-4,-1,3,6,4,2,1,0] }
+};
+
+function applyPreset(name){
+  var p = PRESETS[name];
+  if(!p) return;
+  channels.forEach(function(ch){
+    ch.lowEQ.gain.setTargetAtTime(p.low, audioCtx.currentTime, 0.01);
+    ch.midEQ.gain.setTargetAtTime(p.mid, audioCtx.currentTime, 0.01);
+    ch.highEQ.gain.setTargetAtTime(p.high, audioCtx.currentTime, 0.01);
+    reRenderChannelKnobs(ch, {low:p.low, mid:p.mid, high:p.high});
+  });
+  masterEQFilters.forEach(function(f, idx){
+    var v = p.masterEq[idx]||0;
+    f.gain.setTargetAtTime(v, audioCtx.currentTime, 0.01);
+    var band = $all(".eq-band")[idx];
+    if(band){ band.input.value = v; band.val.textContent = v.toFixed(1); }
+  });
+  showMsg("Preset "+name+" diterapkan");
+}
+
+function reRenderChannelKnobs(ch, vals){
+  // update displayed values without full re-init (visual sync)
+  if(vals.low!=null){ ch.ui.strip.querySelector(".kv-low").textContent = vals.low.toFixed(1); rotateKnobByValue(ch.ui.strip.querySelector(".knob-low"), vals.low, -15, 15); }
+  if(vals.mid!=null){ ch.ui.strip.querySelector(".kv-mid").textContent = vals.mid.toFixed(1); rotateKnobByValue(ch.ui.strip.querySelector(".knob-mid"), vals.mid, -15, 15); }
+  if(vals.high!=null){ ch.ui.strip.querySelector(".kv-high").textContent = vals.high.toFixed(1); rotateKnobByValue(ch.ui.strip.querySelector(".knob-high"), vals.high, -15, 15); }
+}
+function rotateKnobByValue(el, value, min, max){
+  var ind = el.querySelector(".ind");
+  var norm = (value-min)/(max-min);
+  var deg = -135 + norm*270;
+  ind.style.transform = "translateX(-50%) rotate("+deg+"deg)";
+}
+
+function buildPresetUI(){
+  var grid = $("#presetGrid");
+  Object.keys(PRESETS).forEach(function(name){
+    var btn = document.createElement("button");
+    btn.className = "preset-btn";
+    btn.textContent = name;
+    btn.addEventListener("click", function(){ applyPreset(name); });
+    grid.appendChild(btn);
+  });
+  renderSavedPresets();
+}
+
+function getFullState(){
+  return {
+    channels: channels.map(function(ch){
+      return {
+        gain: getKnobDbFromGainNode(ch.gainNode),
+        low: ch.lowEQ.gain.value, mid: ch.midEQ.gain.value, high: ch.highEQ.gain.value,
+        pan: ch.panNode.pan.value,
+        fader: parseFloat(ch.ui.faderSlider.value),
+        send: ch.sendGain.gain.value*100,
+        muted: ch.muted, solo: ch.solo
+      };
+    }),
+    masterEq: masterEQFilters.map(function(f){ return f.gain.value; }),
+    masterFader: parseFloat($("#masterFader").value),
+    reverbMix: reverbReturnGain.gain.value*100,
+    reverbTime: null,
+    delayMix: delayReturnGain.gain.value*100,
+    delayTime: delayNode.delayTime.value*1000,
+    delayFb: delayFeedback.gain.value*100
+  };
+}
+function getKnobDbFromGainNode(node){ return 20*Math.log10(node.gain.value||0.0001); }
+
+$("#savePresetBtn").addEventListener("click", function(){
+  var name = prompt("Nama preset:");
+  if(!name) return;
+  var all = JSON.parse(localStorage.getItem("arAudioPresets")||"{}");
+  all[name] = getFullState();
+  localStorage.setItem("arAudioPresets", JSON.stringify(all));
+  renderSavedPresets();
+  showMsg("Preset '"+name+"' disimpan");
+});
+
+$("#resetMixerBtn").addEventListener("click", function(){
+  if(!confirm("Reset semua parameter mixer ke default?")) return;
+  channels.forEach(function(ch){
+    ch.gainNode.gain.value = 1; ch.lowEQ.gain.value=0; ch.midEQ.gain.value=0; ch.highEQ.gain.value=0;
+    ch.panNode.pan.value=0; ch.faderGain.gain.value=1; ch.sendGain.gain.value=0;
+    ch.muted=false; ch.solo=false;
+    ch.ui.muteBtn.classList.remove("active"); ch.ui.soloBtn.classList.remove("active");
+    ch.ui.panSlider.value=0; ch.ui.panVal.textContent="C";
+    ch.ui.faderSlider.value=0; ch.ui.faderVal.textContent="0.0 dB";
+    reRenderChannelKnobs(ch, {low:0,mid:0,high:0});
+    rotateKnobByValue(ch.ui.strip.querySelector(".knob-gain"),0,-24,24);
+    ch.ui.strip.querySelector(".kv-gain").textContent="0.0dB";
+    rotateKnobByValue(ch.ui.strip.querySelector(".knob-send"),0,0,100);
+    ch.ui.strip.querySelector(".kv-send").textContent="0%";
+  });
+  masterEQFilters.forEach(function(f,idx){ f.gain.value=0; var band=$all(".eq-band")[idx]; if(band){band.input.value=0; band.val.textContent="0.0";} });
+  masterFaderGain.gain.value=1; $("#masterFader").value=0; $("#masterFaderVal").textContent="0.0 dB";
+  updateSoloMuteState();
+  showMsg("Mixer direset");
+});
+
+function renderSavedPresets(){
+  var wrap = $("#savedPresetList");
+  wrap.innerHTML = "";
+  var all = JSON.parse(localStorage.getItem("arAudioPresets")||"{}");
+  Object.keys(all).forEach(function(name){
+    var row = document.createElement("div");
+    row.className = "saved-row";
+    row.innerHTML = '<span>'+name+'</span><button class="load-btn">LOAD</button><button class="del-btn">DELETE</button>';
+    row.querySelector(".load-btn").addEventListener("click", function(){ loadSavedPreset(all[name]); showMsg("Preset '"+name+"' dimuat"); });
+    row.querySelector(".del-btn").addEventListener("click", function(){
+      delete all[name];
+      localStorage.setItem("arAudioPresets", JSON.stringify(all));
+      renderSavedPresets();
+    });
+    wrap.appendChild(row);
+  });
+}
+
+function loadSavedPreset(state){
+  if(!state) return;
+  state.channels.forEach(function(cs, i){
+    var ch = channels[i]; if(!ch) return;
+    ch.gainNode.gain.value = dbToLinear(cs.gain);
+    ch.lowEQ.gain.value = cs.low; ch.midEQ.gain.value = cs.mid; ch.highEQ.gain.value = cs.high;
+    ch.panNode.pan.value = cs.pan;
+    ch.faderGain.gain.value = dbToLinear(cs.fader);
+    ch.sendGain.gain.value = cs.send/100;
+    ch.muted = cs.muted; ch.solo = cs.solo;
+    ch.ui.muteBtn.classList.toggle("active", ch.muted);
+    ch.ui.soloBtn.classList.toggle("active", ch.solo);
+    ch.ui.panSlider.value = cs.pan; ch.ui.panVal.textContent = Math.abs(cs.pan)<0.03?"C":(cs.pan<0?("L"+Math.round(Math.abs(cs.pan)*100)):("R"+Math.round(cs.pan*100)));
+    ch.ui.faderSlider.value = cs.fader; ch.ui.faderVal.textContent = fmtDb(cs.fader);
+    reRenderChannelKnobs(ch, {low:cs.low, mid:cs.mid, high:cs.high});
+    rotateKnobByValue(ch.ui.strip.querySelector(".knob-gain"), cs.gain, -24,24);
+    ch.ui.strip.querySelector(".kv-gain").textContent = fmtDb(cs.gain);
+    rotateKnobByValue(ch.ui.strip.querySelector(".knob-send"), cs.send, 0,100);
+    ch.ui.strip.querySelector(".kv-send").textContent = Math.round(cs.send)+"%";
+  });
+  state.masterEq.forEach(function(v, idx){
+    if(masterEQFilters[idx]) masterEQFilters[idx].gain.value = v;
+    var band = $all(".eq-band")[idx];
+    if(band){ band.input.value = v; band.val.textContent = v.toFixed(1); }
+  });
+  masterFaderGain.gain.value = dbToLinear(state.masterFader);
+  $("#masterFader").value = state.masterFader; $("#masterFaderVal").textContent = fmtDb(state.masterFader);
+  reverbReturnGain.gain.value = state.reverbMix/100;
+  delayReturnGain.gain.value = state.delayMix/100;
+  delayNode.delayTime.value = state.delayTime/1000;
+  delayFeedback.gain.value = state.delayFb/100;
+  updateSoloMuteState();
+}
+
+/* =========================================================
+   VU METER RENDERING
+========================================================= */
+function drawMeter(canvas, analyser, clipLed){
+  if(!canvas) return;
+  var ctx = canvas.getContext("2d");
+  var w = canvas.width, h = canvas.height;
+  var data = new Uint8Array(analyser.fftSize);
+  analyser.getByteTimeDomainData(data);
+  var sumSq = 0, peak = 0;
+  for(var i=0;i<data.length;i++){
+    var s = (data[i]-128)/128;
+    sumSq += s*s;
+    var abs = Math.abs(s);
+    if(abs>peak) peak = abs;
+  }
+  var rms = Math.sqrt(sumSq/data.length);
+  var db = 20*Math.log10(rms||0.0001);
+  db = clamp(db, -50, 0);
+  var level = (db+50)/50; // 0..1
+
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle = "#05070a";
+  ctx.fillRect(0,0,w,h);
+
+  var barH = h*level;
+  var grad = ctx.createLinearGradient(0,h,0,0);
+  grad.addColorStop(0, "#3ddc72");
+  grad.addColorStop(0.7, "#f0c93b");
+  grad.addColorStop(1, "#ff4d4d");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, h-barH, w, barH);
+
+  // segment lines
+  ctx.strokeStyle = "rgba(0,0,0,0.35)";
+  for(var seg=1; seg<14; seg++){
+    var y = h - (h*seg/14);
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
+  }
+
+  var clipping = peak >= 0.98;
+  if(clipLed) clipLed.classList.toggle("clip", clipping);
+  return clipping;
+}
+
+var anyClipMaster = false;
+function meterLoop(){
+  channels.forEach(function(ch){
+    if(ch.ui && ch.ui.vuCanvas) drawMeter(ch.ui.vuCanvas, ch.analyser, ch.ui.clipLed);
+  });
+  if(masterAnalyserL){
+    var cL = drawMeter($("#masterVuL"), masterAnalyserL, null);
+    var cR = drawMeter($("#masterVuR"), masterAnalyserR, null);
+    var clip = cL || cR;
+    $("#masterPeak").classList.toggle("on", clip);
+  }
+  requestAnimationFrame(meterLoop);
+}
+
+/* =========================================================
+   SETUP TAB ACTIONS
+========================================================= */
+$("#micTestBtn").addEventListener("click", function(){
+  var out = $("#micTestResult");
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    out.textContent = "Your browser does not support this feature.";
+    out.style.color = "var(--red)";
+    return;
+  }
+  navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
+    out.textContent = "Microphone access granted.";
+    out.style.color = "var(--green)";
+    stream.getTracks().forEach(function(t){ t.stop(); });
+  }).catch(function(){
+    out.textContent = "Microphone permission denied";
+    out.style.color = "var(--red)";
+  });
+});
+
+$("#tryDisplayCaptureBtn").addEventListener("click", function(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia){
+    showMsg("Your browser does not support this feature.");
+    return;
+  }
+  navigator.mediaDevices.getDisplayMedia({video:true, audio:true}).then(function(stream){
+    var audioTracks = stream.getAudioTracks();
+    if(audioTracks.length===0){
+      showMsg("Perangkat/browser ini tidak menyediakan audio track pada capture.");
+      return;
+    }
+    showMsg("Tab audio capture aktif. Pilih channel dan set input secara manual jika diperlukan.");
+    // Not auto-wired to a channel; user is informed this is experimental/best-effort.
+  }).catch(function(){
+    showMsg("Capture dibatalkan atau tidak didukung.");
+  });
+});
+
+})();
+</script>
+</body>
+</html>
